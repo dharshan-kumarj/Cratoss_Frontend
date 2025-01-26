@@ -10,7 +10,7 @@ const IntroPage: React.FC = () => {
         <Title>Welcome to</Title>
         <MainTitle>Cratoss</MainTitle>
         <Subtitle>Your Personal IOT Assistant!</Subtitle>
-        <GetStartedButton href="index.php">Get Started!</GetStartedButton>
+        <GetStartedButton href="#">Get Started!</GetStartedButton>
       </Container>
       <Graph>
         <GraphSvg viewBox="0 0 1000 100" preserveAspectRatio="none">
