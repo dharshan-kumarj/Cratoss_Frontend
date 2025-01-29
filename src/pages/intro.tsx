@@ -12,6 +12,8 @@ const IntroPage: React.FC = () => {
 
   return (
     <Wrapper>
+    <p className='text-5xl'>Hello</p>
+
       <Container>
         <Logo src={AI} alt="Cratoss Logo" />
         <Title>Welcome to</Title>
