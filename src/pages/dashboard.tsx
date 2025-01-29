@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import styled from 'styled-components';
 import '../styles/dashbord.css';
+import AI from '../images/AI.png';
+import User from '../images/User.jpg';
 
 const Dashboard: React.FC = () => {
   const [messages, setMessages] = useState<{ type: 'user' | 'ai'; content: string }[]>([]);
@@ -109,9 +111,9 @@ const Dashboard: React.FC = () => {
       <ChatContainer ref={chatContainerRef}>
         {messages.map((message, index) => (
           <Message key={index} className={`${message.type} ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {message.type === 'user' && <Avatar src="../images/User.png" alt="User" />}
+            {message.type === 'ai' && <Avatar src={AI} alt="AI" />}
             <MessageContent dangerouslySetInnerHTML={{ __html: message.content }} />
-            {message.type === 'ai' && <Avatar src="../images/AI.png" alt="AI" />}
+            {message.type === 'user' && <Avatar src={User} alt="User" />}
           </Message>
         ))}
       </ChatContainer>
