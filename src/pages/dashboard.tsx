@@ -1,71 +1,64 @@
-import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
-import styled from 'styled-components';
-import '../styles/dashbord.css';
-import AI from '../images/AI.png';
-import User from '../images/User.jpg';
+import React, { useState, useEffect, useRef, KeyboardEvent, ChangeEvent } from 'react';
+import { Send, Loader2 } from 'lucide-react';
+
+interface Message {
+  type: 'user' | 'ai';
+  content: string;
+}
+
+interface ApiResponse {
+  result?: string;
+  error?: string;
+}
 
 const Dashboard: React.FC = () => {
-  const [messages, setMessages] = useState<{ type: 'user' | 'ai'; content: string }[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (): void => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const formatApiResponse = (response: string): string => {
+    return response
+      .replace(/\n/g, '<br>')
+      .replace(/#{2,6}\s+([^\n]+)/g, '<h3 class="text-lg font-bold my-2">$1</h3>')
+      .replace(/```(\w*)([\s\S]*?)```/g, '<pre class="bg-gray-800 p-4 rounded-lg my-2 overflow-x-auto"><code>$2</code></pre>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+      .replace(/^\* (.*?)$/gm, '• $1')
+      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+      .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-400 hover:text-blue-300 underline">$1</a>')
+      .replace(/•/g, '<br>•');
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setInputValue(e.target.value);
   };
 
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Enter' && !isLoading) {
       handleSendMessage();
     }
   };
 
-  const extractResponseContent = (data: any) => {
-    if (data && data.result) {
-      const match = data.result.match(/"([\s\S]*)"$/);
-      return match ? match[1] : data.result;
-    }
-    return 'No response received';
-  };
-
-  const formatApiResponse = (response: string) => {
-    return response
-      .replace(/\n/g, '<br>')
-      .replace(/#{2,6}\s+([^\n]+)/g, '<h3>$1</h3>')
-      .replace(/```(\w*)([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/^\* (.*?)$/gm, '• $1')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>')
-      .replace(/•/g, '<br>•');
-  };
-
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (): Promise<void> => {
     const trimmedInput = inputValue.trim();
-    if (!trimmedInput) return;
+    if (!trimmedInput || isLoading) return;
 
-    // Add user message
     setMessages(prev => [...prev, {
       type: 'user',
       content: trimmedInput
     }]);
     setInputValue('');
-
-    // Add typing indicator
-    setMessages(prev => [...prev, {
-      type: 'ai',
-      content: '<div class="typing-indicator"><span></span><span></span><span></span></div>'
-    }]);
+    setIsLoading(true);
 
     try {
       const response = await fetch('https://api-cratoss.dharshankumar.com/api/chat', {
@@ -73,200 +66,106 @@ const Dashboard: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          text: trimmedInput
-        }),
+        body: JSON.stringify({ text: trimmedInput }),
       });
 
-      const data = await response.json();
-      console.log('API Response:', data);
+      const data: ApiResponse = await response.json();
+      const formattedResponse = formatApiResponse(data.result || 'No response received');
 
-      // Extract and format the response content
-      const extractedContent = extractResponseContent(data);
-      const formattedResponse = formatApiResponse(extractedContent);
-
-      // Remove typing indicator and add formatted response
-      setMessages(prev => {
-        const messagesWithoutTyping = prev.filter((_, index) => index !== prev.length - 1);
-        return [...messagesWithoutTyping, {
-          type: 'ai',
-          content: formattedResponse
-        }];
-      });
-
+      setMessages(prev => [...prev, {
+        type: 'ai',
+        content: formattedResponse
+      }]);
     } catch (error) {
       console.error('API Error:', error);
-      setMessages(prev => {
-        const messagesWithoutTyping = prev.filter((_, index) => index !== prev.length - 1);
-        return [...messagesWithoutTyping, {
-          type: 'ai',
-          content: 'Sorry, I encountered an error. Please try again.'
-        }];
-      });
+      setMessages(prev => [...prev, {
+        type: 'ai',
+        content: 'Sorry, I encountered an error. Please try again.'
+      }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Wrapper>
-      <ChatContainer ref={chatContainerRef}>
+    <div className="flex flex-col h-screen bg-gray-900">
+      {/* Chat container */}
+      <div 
+        ref={chatContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+      >
         {messages.map((message, index) => (
-          <Message key={index} className={`${message.type} ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {message.type === 'ai' && <Avatar src={AI} alt="AI" />}
-            <MessageContent dangerouslySetInnerHTML={{ __html: message.content }} />
-            {message.type === 'user' && <Avatar src={User} alt="User" />}
-          </Message>
-        ))}
-      </ChatContainer>
+          <div
+            key={index}
+            className={`flex items-start gap-3 ${
+              message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
+            }`}
+          >
+            {/* Avatar */}
+            <div className={`flex-shrink-0 ${
+              message.type === 'user' ? 'ml-2' : 'mr-2'
+            }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                message.type === 'user' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-purple-500 text-white'
+              }`}>
+                {message.type === 'user' ? 'U' : 'AI'}
+              </div>
+            </div>
 
-      <InputContainer>
-        <Input
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyPress={handleKeyPress}
-          placeholder="Ask me..."
-        />
-        <SendButton onClick={handleSendMessage}>
-          Send
-        </SendButton>
-      </InputContainer>
-    </Wrapper>
+            {/* Message content */}
+            <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+              message.type === 'user'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-100'
+            }`}>
+              <div 
+                className="prose prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: message.content }}
+              />
+            </div>
+          </div>
+        ))}
+        
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mr-2">
+              <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                AI
+              </div>
+            </div>
+            <div className="bg-gray-800 rounded-2xl px-4 py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input area */}
+      <div className="border-t border-gray-800 bg-gray-900 p-4">
+        <div className="max-w-4xl mx-auto flex gap-4">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyPress={handleKeyPress}
+            placeholder="Type your message..."
+            className="flex-1 bg-gray-800 text-gray-100 rounded-full px-6 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={isLoading || !inputValue.trim()}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-full p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            aria-label="Send message"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
-
-// Styled components remain exactly the same
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  color: #ffffff;
-`;
-
-const ChatContainer = styled.div`
-  flex-grow: 1;
-  overflow-y: auto;
-  padding: 20px;
-  padding-bottom: 80px;
-  box-sizing: border-box;
-`;
-
-const Message = styled.div`
-  display: flex;
-  margin-bottom: 20px;
-  align-items: flex-start;
-
-  &.user {
-    justify-content: flex-end;
-  }
-
-  &.ai {
-    justify-content: flex-start;
-  }
-`;
-
-const Avatar = styled.img`
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  margin: 0 10px;
-`;
-
-const MessageContent = styled.div`
-  max-width: 70%;
-  padding: 12px 18px;
-  border-radius: 20px;
-  font-size: 15px;
-  line-height: 1.4;
-  position: relative;
-
-  .user & {
-    background-color: #0084ff;
-    color: #ffffff;
-    text-align: right;
-  }
-
-  .ai & {
-    background-color: #1e1e1e;
-    color: #ffffff;
-    text-align: left;
-  }
-
-  h3 {
-    margin: 15px 0 10px 0;
-    font-size: 1.2em;
-    font-weight: bold;
-  }
-
-  pre {
-    background-color: #2d2d2d;
-    padding: 10px;
-    border-radius: 5px;
-    overflow-x: auto;
-    margin: 10px 0;
-  }
-
-  code {
-    font-family: monospace;
-    white-space: pre-wrap;
-    color: #e6e6e6;
-  }
-
-  a {
-    color: #00b0ff;
-    text-decoration: underline;
-  }
-
-  br {
-    display: block;
-    margin: 5px 0;
-    content: "";
-  }
-
-  strong {
-    font-weight: bold;
-    color: #ffffff;
-  }
-
-  em {
-    font-style: italic;
-  }
-`;
-
-const InputContainer = styled.div`
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 15px;
-  display: flex;
-  align-items: center;
-  background: transparent;
-`;
-
-const Input = styled.input`
-  flex-grow: 1;
-  padding: 12px 18px;
-  border: none;
-  border-radius: 25px;
-  background-color: #f0f0f0;
-  color: #333333;
-  font-size: 15px;
-  margin-right: 10px;
-
-  &::placeholder {
-    color: #999999;
-  }
-`;
-
-const SendButton = styled.button`
-  width: 70px;
-  height: 44px;
-  background-color: #0084ff;
-  color: #ffffff;
-  border: none;
-  border-radius: 22px;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: bold;
-`;
 
 export default Dashboard;
