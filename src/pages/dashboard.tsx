@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, KeyboardEvent, ChangeEvent } from 'react';
 import { Send, Loader2 } from 'lucide-react';
+import AI from '../images/AI.png';
+import User from '../images/User.jpg';
 
 interface Message {
   type: 'user' | 'ai';
@@ -101,17 +103,15 @@ const Dashboard: React.FC = () => {
               message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
             }`}
           >
-            {/* Avatar */}
+            {/* Avatar Image */}
             <div className={`flex-shrink-0 ${
               message.type === 'user' ? 'ml-2' : 'mr-2'
             }`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                message.type === 'user' 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-purple-500 text-white'
-              }`}>
-                {message.type === 'user' ? 'U' : 'AI'}
-              </div>
+              <img
+                src={message.type === 'user' ? User : AI}
+                alt={message.type === 'user' ? "User Avatar" : "AI Avatar"}
+                className="w-8 h-8 rounded-full object-cover"
+              />
             </div>
 
             {/* Message content */}
@@ -132,9 +132,11 @@ const Dashboard: React.FC = () => {
         {isLoading && (
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mr-2">
-              <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
-                AI
-              </div>
+              <img
+                src={AI}
+                alt="AI Avatar"
+                className="w-8 h-8 rounded-full object-cover"
+              />
             </div>
             <div className="bg-gray-800 rounded-2xl px-4 py-2">
               <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
