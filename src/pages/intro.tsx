@@ -1,8 +1,15 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom';
 import AI from '../images/AI.png';
 
 const IntroPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleGetStarted = () => {
+    navigate('/dashboard');
+  };
+
   return (
     <Wrapper>
       <Container>
@@ -10,7 +17,7 @@ const IntroPage: React.FC = () => {
         <Title>Welcome to</Title>
         <MainTitle>Cratoss</MainTitle>
         <Subtitle>Your Personal IOT Assistant!</Subtitle>
-        <GetStartedButton href="#">Get Started!</GetStartedButton>
+        <GetStartedButton onClick={handleGetStarted}>Get Started!</GetStartedButton>
       </Container>
       <Graph>
         <GraphSvg viewBox="0 0 1000 100" preserveAspectRatio="none">
@@ -74,7 +81,7 @@ const Subtitle = styled.p`
   }
 `;
 
-const GetStartedButton = styled.a`
+const GetStartedButton = styled.button`
   background-color: #007bff;
   border: none;
   padding: 15px 30px;
@@ -82,6 +89,12 @@ const GetStartedButton = styled.a`
   color: white;
   text-decoration: none;
   border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #0056b3;
+  }
 
   @media (max-width: 768px) {
     padding: 10px 20px;
@@ -112,4 +125,5 @@ const GraphPath = styled.path`
   stroke: #007bff;
   stroke-width: 2;
 `;
+
 export default IntroPage;
