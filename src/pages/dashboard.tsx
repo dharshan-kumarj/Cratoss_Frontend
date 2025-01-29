@@ -1,27 +1,69 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import styled from 'styled-components';
 import '../styles/dashbord.css';
 
 const Dashboard: React.FC = () => {
   const [messages, setMessages] = useState<{ type: 'user' | 'ai'; content: string }[]>([]);
+  const [inputValue, setInputValue] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const appendMessage = (type: 'user' | 'ai', content: string) => {
-    setMessages((prevMessages) => [...prevMessages, { type, content }]);
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   };
 
-  const sendMessage = async () => {
-    const input = (document.getElementById('userinput') as HTMLInputElement)?.value.trim();
-    if (!input) return;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
 
-    appendMessage('user', input);
-    (document.getElementById('userinput') as HTMLInputElement).value = '';
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
-    appendMessage('ai', '<div class="typing-indicator"><span></span><span></span><span></span></div>');
+  const extractResponseContent = (data: any) => {
+    if (data && data.result) {
+      const match = data.result.match(/"([\s\S]*)"$/);
+      return match ? match[1] : data.result;
+    }
+    return 'No response received';
+  };
+
+  const formatApiResponse = (response: string) => {
+    return response
+      .replace(/\n/g, '<br>')
+      .replace(/#{2,6}\s+([^\n]+)/g, '<h3>$1</h3>')
+      .replace(/```(\w*)([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^\* (.*?)$/gm, '• $1')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>')
+      .replace(/•/g, '<br>•');
+  };
+
+  const handleSendMessage = async () => {
+    const trimmedInput = inputValue.trim();
+    if (!trimmedInput) return;
+
+    // Add user message
+    setMessages(prev => [...prev, {
+      type: 'user',
+      content: trimmedInput
+    }]);
+    setInputValue('');
+
+    // Add typing indicator
+    setMessages(prev => [...prev, {
+      type: 'ai',
+      content: '<div class="typing-indicator"><span></span><span></span><span></span></div>'
+    }]);
 
     try {
       const response = await fetch('https://api-cratoss.dharshankumar.com/api/chat', {
@@ -29,56 +71,36 @@ const Dashboard: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({
+          text: trimmedInput
+        }),
       });
+
       const data = await response.json();
+      console.log('API Response:', data);
 
-      // Remove typing indicator
-      setMessages((prevMessages) =>
-        prevMessages.filter((_, index) => index !== prevMessages.length - 1)
-      );
+      // Extract and format the response content
+      const extractedContent = extractResponseContent(data);
+      const formattedResponse = formatApiResponse(extractedContent);
 
-      appendMessage('ai', formatOutput(data.output));
+      // Remove typing indicator and add formatted response
+      setMessages(prev => {
+        const messagesWithoutTyping = prev.filter((_, index) => index !== prev.length - 1);
+        return [...messagesWithoutTyping, {
+          type: 'ai',
+          content: formattedResponse
+        }];
+      });
+
     } catch (error) {
-      // Remove typing indicator
-      setMessages((prevMessages) =>
-        prevMessages.filter((_, index) => index !== prevMessages.length - 1)
-      );
-
-      appendMessage('ai', 'Sorry, I encountered an error. Please try again.');
-      console.error('Error:', error);
-    }
-  };
-
-  const formatOutput = (text: string) => {
-    const sections = parseOutput(text);
-    let formattedHtml = '';
-
-    for (const [title, content] of Object.entries(sections)) {
-      formattedHtml += `
-        <div class="output-section">
-          <h3>${title}</h3>
-          ${title.toLowerCase().includes('code') ? `<pre><code>${content}</code></pre>` : `<div>${content}</div>`}
-        </div>
-      `;
-    }
-
-    return wrapCodeBlocks(formattedHtml);
-  };
-
-  const parseOutput = (text: string) => {
-    // Implement the same logic as before to parse the output
-    return {};
-  };
-
-  const wrapCodeBlocks = (html: string) => {
-    // Implement the same logic as before to wrap code blocks
-    return html;
-  };
-
-  const scrollToBottom = () => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      console.error('API Error:', error);
+      setMessages(prev => {
+        const messagesWithoutTyping = prev.filter((_, index) => index !== prev.length - 1);
+        return [...messagesWithoutTyping, {
+          type: 'ai',
+          content: 'Sorry, I encountered an error. Please try again.'
+        }];
+      });
     }
   };
 
@@ -87,15 +109,21 @@ const Dashboard: React.FC = () => {
       <ChatContainer ref={chatContainerRef}>
         {messages.map((message, index) => (
           <Message key={index} className={`${message.type} ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <Avatar src={`../images/${message.type === 'user' ? 'User' : 'AI'}.png`} />
+            {message.type === 'user' && <Avatar src="../images/User.png" alt="User" />}
             <MessageContent dangerouslySetInnerHTML={{ __html: message.content }} />
+            {message.type === 'ai' && <Avatar src="../images/AI.png" alt="AI" />}
           </Message>
         ))}
       </ChatContainer>
 
       <InputContainer>
-        <Input id="userinput" name="userinput" type="text" placeholder="Ask me..." />
-        <SendButton id="Execute" onClick={sendMessage}>
+        <Input
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyPress={handleKeyPress}
+          placeholder="Ask me..."
+        />
+        <SendButton onClick={handleSendMessage}>
           Send
         </SendButton>
       </InputContainer>
@@ -103,6 +131,7 @@ const Dashboard: React.FC = () => {
   );
 };
 
+// Styled components remain exactly the same
 const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -157,6 +186,46 @@ const MessageContent = styled.div`
     background-color: #1e1e1e;
     color: #ffffff;
     text-align: left;
+  }
+
+  h3 {
+    margin: 15px 0 10px 0;
+    font-size: 1.2em;
+    font-weight: bold;
+  }
+
+  pre {
+    background-color: #2d2d2d;
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto;
+    margin: 10px 0;
+  }
+
+  code {
+    font-family: monospace;
+    white-space: pre-wrap;
+    color: #e6e6e6;
+  }
+
+  a {
+    color: #00b0ff;
+    text-decoration: underline;
+  }
+
+  br {
+    display: block;
+    margin: 5px 0;
+    content: "";
+  }
+
+  strong {
+    font-weight: bold;
+    color: #ffffff;
+  }
+
+  em {
+    font-style: italic;
   }
 `;
 
