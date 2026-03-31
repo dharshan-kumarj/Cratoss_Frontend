@@ -9,7 +9,7 @@ interface Message {
 }
 
 interface ApiResponse {
-  result?: string;
+  answer?: string;
   error?: string;
 }
 
@@ -38,6 +38,7 @@ const Dashboard: React.FC = () => {
       .replace(/^\* (.*?)$/gm, '• $1')
       .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
       .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-400 hover:text-blue-300 underline">$1</a>')
+      .replace(/\[(Source\s+\d+:.*?)\]/g, '<span class="text-xs font-semibold bg-blue-900/40 text-blue-200 px-2 py-0.5 rounded border border-blue-700/50 my-1 inline-block">$1</span>')
       .replace(/•/g, '<br>•');
   };
 
@@ -63,16 +64,16 @@ const Dashboard: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://api-cratoss.dharshankumar.com/api/chat', {
+      const response = await fetch('/api/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: trimmedInput }),
+        body: JSON.stringify({ question: trimmedInput }),
       });
 
       const data: ApiResponse = await response.json();
-      const formattedResponse = formatApiResponse(data.result || 'No response received');
+      const formattedResponse = formatApiResponse(data.answer || 'No response received');
 
       setMessages(prev => [...prev, {
         type: 'ai',
